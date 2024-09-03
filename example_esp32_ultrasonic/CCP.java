@@ -3,7 +3,8 @@ import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
 //JSON imports
-import org.json.simple.parser.JSONParser;
+import org.json.simple.*;
+import org.json.simple.parser.*;
 
 public class CCP {
     public static void main(String[] args) {
@@ -35,5 +36,8 @@ public class CCP {
             System.out.println("Server exception: " + ex.getMessage());
             ex.printStackTrace();
         }
+
+        //JSON write
+        
     }
 }
