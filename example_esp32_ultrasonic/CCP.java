@@ -1,43 +1,30 @@
-import java.io.*;
-import java.net.*;
+import java.net.DatagramPacket;
+import java.net.DatagramSocket;
+import java.net.InetAddress;
 
 public class CCP {
     public static void main(String[] args) {
         int port = 3014;
-        try (ServerSocket serverSocket = new ServerSocket(port)) {
+        try (DatagramSocket socket = new DatagramSocket(port)) {
+            byte[] buffer = new byte[256];
+
             System.out.println("Server is listening on port " + port);
+
             while (true) {
-                Socket socket = serverSocket.accept();
-                System.out.println("New client connected");
+                DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
+                socket.receive(packet);
 
-                new ClientHandler(socket).start();
+                String received = new String(packet.getData(), 0, packet.getLength());
+                System.out.println("Received from client: " + received);
+
+                // Send response to client
+                String response = "Echo: " + received;
+                InetAddress address = packet.getAddress();
+                int clientPort = packet.getPort();
+                packet = new DatagramPacket(response.getBytes(), response.length(), address, clientPort);
+                socket.send(packet);
             }
-        } catch (IOException ex) {
-            System.out.println("Server exception: " + ex.getMessage());
-            ex.printStackTrace();
-        }
-    }
-}
-
-class ClientHandler extends Thread {
-    private Socket socket;
-
-    public ClientHandler(Socket socket) {
-        this.socket = socket;
-    }
-
-    public void run() {
-        try (InputStream input = socket.getInputStream();
-             BufferedReader reader = new BufferedReader(new InputStreamReader(input));
-             OutputStream output = socket.getOutputStream();
-             PrintWriter writer = new PrintWriter(output, true)) {
-
-            String text;
-            while ((text = reader.readLine()) != null) {
-                System.out.println("Received from client: " + text);
-                writer.println("Echo: " + text); // Echo the received message back to the client
-            }
-        } catch (IOException ex) {
+        } catch (Exception ex) {
             System.out.println("Server exception: " + ex.getMessage());
             ex.printStackTrace();
         }

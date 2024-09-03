@@ -1,5 +1,6 @@
 #include <NewPing.h>
 #include <WiFi.h>
+#include <WiFiUdp.h>
 
 // WiFi credentials
 const char* ssid = "your_SSID";
@@ -14,7 +15,7 @@ IPAddress subnet(255, 255, 255, 0);
 const char* server_ip = "10.20.30.114";
 const uint16_t server_port = 3014;
 
-WiFiClient client;
+WiFiUDP udp;
 
 #define S1_TRIGGER_PIN 25
 #define S1_ECHO_PIN 26
@@ -42,12 +43,10 @@ void setup()
 
   Serial.println("Connected to WiFi");
 
-  // Connect to the server
-  if (client.connect(server_ip, server_port)) {
-    Serial.println("Connected to server");
-  } else {
-    Serial.println("Connection to server failed");
-  }
+  // Send "I am alive" message
+  udp.beginPacket(server_ip, server_port);
+  udp.println("I am alive");
+  udp.endPacket();
 }
 
 void loop()
@@ -72,27 +71,25 @@ void loop()
     Serial.println("cm");
   }
 
-  // Check if connected to the server
-  if (client.connected()) {
-    // Send data to the server
-    client.print("S1: ");
-    client.print(S1_distance);
-    client.print("cm, S2: ");
-    client.print(S2_distance);
-    client.println("cm");
+  // Send sensor data to the server
+  udp.beginPacket(server_ip, server_port);
+  udp.print("S1: ");
+  udp.print(S1_distance);
+  udp.print("cm, S2: ");
+  udp.print(S2_distance);
+  udp.println("cm");
+  udp.endPacket();
 
-    // Wait for a response from the server
-    while (client.available()) {
-      String response = client.readStringUntil('\n');
-      Serial.println("Received from server: " + response);
+  // Check for incoming UDP packets
+  int packetSize = udp.parsePacket();
+  if (packetSize) {
+    char incomingPacket[255];
+    int len = udp.read(incomingPacket, 255);
+    if (len > 0) {
+      incomingPacket[len] = 0;
     }
-  } else {
-    Serial.println("Disconnected from server");
-    // Attempt to reconnect
-    if (client.connect(server_ip, server_port)) {
-      Serial.println("Reconnected to server");
-    }
+    Serial.printf("Received from server: %s\n", incomingPacket);
   }
 
-  delay(10);  // Wait before starting the next loop
+  delay(1000);  // Wait before starting the next loop
 }
