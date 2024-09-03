@@ -5,10 +5,12 @@
 #define S1_ECHO_PIN 26
 #define S2_TRIGGER_PIN 27
 #define S2_ECHO_PIN 14
+
 #define S1_RED_PIN 16
 #define S1_GREEN_PIN 17
 #define S2_RED_PIN 18
 #define S2_GREEN_PIN 19
+
 #define MIN_LENGTH 10
 
 
