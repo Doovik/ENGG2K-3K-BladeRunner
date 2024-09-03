@@ -1,9 +1,16 @@
+//UDP imports
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
+//JSON imports
+import org.json.simple.parser.JSONParser;
 
 public class CCP {
     public static void main(String[] args) {
+        //JSON read
+        JSONParser parser = new JSONParser();
+
+        //UDP
         int port = 3014;
         try (DatagramSocket socket = new DatagramSocket(port)) {
             byte[] buffer = new byte[256];
