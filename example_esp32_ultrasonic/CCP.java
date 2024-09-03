@@ -5,12 +5,41 @@ import java.net.InetAddress;
 //JSON imports
 import org.json.simple.*;
 import org.json.simple.parser.*;
+//import java.util.Iterator;
+import java.io.FileNotFoundException;
+import java.io.FileReader;
+import java.io.IOException;
 
 public class CCP {
+    static String fileLoc = "";
     public static void main(String[] args) {
         //JSON read
+        //initialise empty values;
+        String client_type;
+        String message;
+        String client_id;
+        String timestamp;
+        String action;
+        //initialise JSONParser
         JSONParser parser = new JSONParser();
-
+        try{
+            JSONObject obj = (JSONObject)parser.parse(new FileReader(fileLoc)); //Get JSONObject
+            //fetching values from JSON Object
+            client_type = (String) obj.get("client_type");
+            message = (String) obj.get("message");
+            client_id = (String) obj.get("client_id");
+            timestamp = (String) obj.get("timestamp");
+            action = (String) obj.get("action");
+        }
+        catch(FileNotFoundException e){
+            e.printStackTrace();
+        }
+        catch(IOException e){
+            e.printStackTrace();
+        }
+        catch(ParseException e){
+            e.printStackTrace();
+        }
         //UDP
         int port = 3014;
         try (DatagramSocket socket = new DatagramSocket(port)) {
@@ -38,6 +67,6 @@ public class CCP {
         }
 
         //JSON write
-        
+
     }
 }
