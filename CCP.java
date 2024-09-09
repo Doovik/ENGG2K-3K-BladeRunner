@@ -11,7 +11,17 @@ import java.io.FileReader;
 import java.io.IOException;
 
 public class CCP {
+    enum Status {
+        STOPPED,
+        STARTED,
+        ON,
+        OFF,
+        ERR,
+        CRASH,
+        STOPPED_AT_STATION
+    }
     static String fileLoc = "";
+    final static String client = "ccp";
     public static void main(String[] args) {
         //JSON read
         //initialise empty values;
@@ -22,7 +32,7 @@ public class CCP {
         String action;
         //initialise JSONParser
         JSONParser parser = new JSONParser();
-        try{
+        try {
             JSONObject obj = (JSONObject)parser.parse(new FileReader(fileLoc)); //Get JSONObject
             //fetching values from JSON Object
             client_type = (String) obj.get("client_type");
@@ -67,6 +77,21 @@ public class CCP {
         }
 
         //JSON write
+        JSONObject jsonWrite = new JSONObject();
+        jsonWrite(jsonWrite, " ", " ", Status.STOPPED, " "); //TODO - determine values
 
+
+    }
+
+    @SuppressWarnings("unchecked")
+    static void jsonWrite(JSONObject jobj, String message, String clientID, Status status, String stationID) {
+        jobj.put("client_type", client);
+        jobj.put("message", message);
+        jobj.put("client_id", clientID);
+        jobj.put("timestamp", " "); //TODO - check which func can do the format
+        jobj.put("status", status);
+        if (status == Status.STOPPED_AT_STATION) {
+            jobj.put("station_id", stationID);
+        }
     }
 }
