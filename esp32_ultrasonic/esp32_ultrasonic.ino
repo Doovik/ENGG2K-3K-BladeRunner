@@ -16,6 +16,7 @@
 
 #define maxDist 450
 
+NewPing S1_sonar(S1_TRIGGER_PIN, S2_ECHO_PIN, maxDist);
 NewPing S2_sonar(S2_TRIGGER_PIN, S2_ECHO_PIN, maxDist);
 void setup()
 {
