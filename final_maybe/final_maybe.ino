@@ -1,10 +1,11 @@
 #include <WiFi.h>
 #include <WiFiUdp.h>
 #include <ArduinoJson.h>
+#include <NewPing.h>
 
 // WiFi credentials
-const char* ssid = "D";
-const char* password = "doovik69";
+const char* ssid = "ENGG2K3K";
+const char* password = "";
 
 // Static IP address configuration
 IPAddress local_IP(192, 168, 0, 0); //ESP IP
@@ -28,9 +29,40 @@ int execSequenceNumber = 2;
 int strqSequenceNumber = 1;
 int lastExecSequenceNumber = 0; // To track the highest EXEC sequence number
 
+
+const int S1_TRIGGER_PIN = 25;
+const int S1_ECHO_PIN = 26;
+const int S2_TRIGGER_PIN = 27;
+const int S2_ECHO_PIN = 14;
+
+const int S1_RED_PIN = 16;
+const int S1_GREEN_PIN = 17;
+const int S2_RED_PIN = 18;
+const int S2_GREEN_PIN = 19;
+
+const int pwmPin = 33;
+const int dirPin1 = 2;
+const int dirPin2 = 15;
+
+const int maxDist = 450;
+const int minBrakingDist = 1;
+const int maxBrakingDist = 5;
+
+NewPing S1_sonar(S1_TRIGGER_PIN, S1_ECHO_PIN, maxDist);
+NewPing S2_sonar(S2_TRIGGER_PIN, S2_ECHO_PIN, maxDist);
+
 void setup()
 {
   Serial.begin(9600);
+  pinMode(S1_RED_PIN, OUTPUT);
+  pinMode(S1_GREEN_PIN, OUTPUT);
+  pinMode(S2_RED_PIN, OUTPUT);
+  pinMode(S2_GREEN_PIN, OUTPUT);
+  pinMode(dirPin1, OUTPUT);
+  pinMode(dirPin2, OUTPUT);
+  pinMode(pwmPin, OUTPUT);
+  digitalWrite(dirPin1, HIGH);
+  digitalWrite(dirPin2, LOW);
 
   // Connect to Wi-Fi
   WiFi.config(local_IP, gateway, subnet);
@@ -77,8 +109,77 @@ void setup()
   }
 }
 
-void loop()
-{
+void stopBladeRunner() {
+  analogWrite(pwmPin, 0);
+  Serial.println("Blade Runner has Stopped.");
+}
+
+void goForwardSlow() {
+  digitalWrite(dirPin1, HIGH);
+  digitalWrite(dirPin2, LOW);
+  analogWrite(pwmPin, 64);
+  Serial.println("Moving slowly forward.");
+}
+
+void goForwardFast() {
+  digitalWrite(dirPin1, HIGH);
+  digitalWrite(dirPin2, LOW);
+  analogWrite(pwmPin, 150);
+  Serial.println("Moving fast forward.");
+}
+
+void reverseSlow() {
+  digitalWrite(dirPin1, LOW);
+  digitalWrite(dirPin2, HIGH);
+  analogWrite(pwmPin, 64);
+  Serial.println("Moving slowly backwards.");
+}
+
+void checkEmergencyBraking()  {
+  int distance = 0;
+  if(ccpStatus == "RSLOWC") {
+    distance = S2_sonar.ping_cm();
+    Serial.print("Rear sensor distance: ");
+    Serial.println(distance);
+  } else {
+    distance = S1_sonar.ping_cm();
+    Serial.print("Front sensor distance: ");
+    Serial.println(distance);
+  }
+
+  // If distance is between 1 and 5 cm, trigger an emergency stop
+  if (distance >= minBrakingDist && distance <= maxBrakingDist) {
+    stopBladeRunner();
+    Serial.println("Emergency Stop: Object detected within 1-5 cm.");
+  }
+}
+
+void handleCommand(const char* action) {
+  if (strcmp(action, "STOPC") == 0) {
+    stopBladeRunner();
+    ccpStatus = "STOPC";
+  } else if (strcmp(action, "STOPO") == 0) {
+    stopBladeRunner();
+    ccpStatus = "STOPO";
+  } else if (strcmp(action, "FSLOWC") == 0) {
+    goForwardSlow();
+    ccpStatus = "FSLOWC";
+  } else if (strcmp(action, "FFASTC") == 0) {
+    goForwardFast();
+    ccpStatus = "FFASTC";
+  } else if (strcmp(action, "RSLOWC") == 0) {
+    reverseSlow();
+    ccpStatus = "RSLOWC";
+  } else if (strcmp(action, "DISCONNECT") == 0) {
+    stopBladeRunner();
+    ccpStatus = "OFLN";
+  }
+}
+
+void loop() {
+
+  checkEmergencyBraking();
+
   // Check for incoming UDP packets
   int packetSize = udp.parsePacket();
   if (packetSize) {
@@ -128,21 +229,7 @@ void loop()
 
       // Check if the incoming EXEC message has a higher sequence number
       if (incomingSequenceNumber > lastExecSequenceNumber) {
-        // Update the status based on the action
-        if (strcmp(action, "STOPC") == 0) {
-          ccpStatus = "STOPC";
-        } else if (strcmp(action, "STOPO") == 0) {
-          ccpStatus = "STOPO";
-        } else if (strcmp(action, "FSLOWC") == 0) {
-          ccpStatus = "FSLOWC";
-        } else if (strcmp(action, "FFASTC") == 0) {
-          ccpStatus = "FFASTC";
-        } else if (strcmp(action, "RSLOWC") == 0) {
-          ccpStatus = "RSLOWC";
-        } else if (strcmp(action, "DISCONNECT") == 0) {
-          ccpStatus = "OFLN";
-        }
-
+        handleCommand(action);
         // Update the most recent packet and the last EXEC sequence number
         mostRecentPacket = String(incomingPacket);
         lastExecSequenceNumber = incomingSequenceNumber;
@@ -172,5 +259,5 @@ void loop()
     Serial.println("No packet received");
   }
 
-  delay(1000);  
+  delay(500);  
 }
