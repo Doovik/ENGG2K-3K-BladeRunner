@@ -3,8 +3,8 @@
 #include <ArduinoJson.h>
 
 // WiFi credentials
-const char* ssid = "";
-const char* password = "";
+const char* ssid = "D";
+const char* password = "doovik69";
 
 // Static IP address configuration
 IPAddress local_IP(192, 168, 0, 0); //ESP IP
