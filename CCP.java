@@ -14,13 +14,12 @@ import java.io.IOException;
 public class CCP {
     //enum for current carriage status
     enum Status {
-        STOPPED,
-        STARTED,
-        ON,
-        OFF,
-        ERR,
-        CRASH,
-        STOPPED_AT_STATION
+        STOPC, //stopped + door closed
+        STOPO, //stopped + door opened
+        FSLOWC, //forward, slow, door closed
+        FFASTC, //forward, fast, door closed
+        RSLOWC, //backwards, slow, door closed
+        ERR, //CPP <-> BRC contact lost
     }
     //initialise empty values for jsonRead
     static String client_type;
@@ -43,7 +42,7 @@ public class CCP {
             System.out.println("Server is listening on port " + port);
 
             jsonRead(); //TODO put jsonRead and jsonWrite inside the loop
-            jsonWrite(jsonWrite, "TEST-MSG", "TEST-ID", Status.STOPPED_AT_STATION, "TEST-SID");
+            jsonWrite(jsonWrite, "TEST-MSG", "TEST-ID", 9999, Status.ERR, "TEST-SID");
             while (true) {
                 DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
                 socket.receive(packet);
@@ -72,13 +71,14 @@ public class CCP {
     }
 
     @SuppressWarnings("unchecked")
-    static void jsonWrite(JSONObject jobj, String message, String clientID, Status status, String stationID) {
+    static void jsonWrite(JSONObject jobj, String message, String clientID, int sequence_number, Status status, String stationID) {
         jobj.put("client_type", client);
         jobj.put("message", message);
         jobj.put("client_id", clientID);
-        jobj.put("timestamp", " "); //TODO - check which func can do the format
+        jobj.put("sequence_number", " ");
+        jobj.put("action", action);
         jobj.put("status", status.toString());
-        if (status == Status.STOPPED_AT_STATION) {
+        if (status == Status.ERR) {
             jobj.put("station_id", stationID);
         }
         try (FileWriter file = new FileWriter("C:\\ENGG3000_BR_2\\New folder\\ENGG2K-3K-BladeRunner\\test.json")) {

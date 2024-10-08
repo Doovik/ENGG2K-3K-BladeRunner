@@ -3,7 +3,11 @@
         "."
     ],
     "java.project.referencedLibraries": [
+<<<<<<< HEAD
+        "json-simple-1.1.1.jar"
+=======
         "json-simple-1.1.1.jar",
         "test_codes/esp32_ultrasonic/json-20240303.jar"
+>>>>>>> c2763097ecad2928f0d01cb757cba898c39cc3b7
     ]
 }
