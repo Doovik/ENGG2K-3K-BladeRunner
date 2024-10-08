@@ -1,19 +1,19 @@
-#include <WiFi.h>
-#include <WiFiUdp.h>
-#include <ArduinoJson.h>
-#include <NewPing.h>
+#include <WiFi.h> // WiFi Library
+#include <WiFiUdp.h> // WiFi Library
+#include <ArduinoJson.h> // Json Interpretation
+#include <NewPing.h> // US Sensor Library
 
 // WiFi credentials
 const char* ssid = "ENGG2K3K";
 const char* password = "";
 
 // Static IP address configuration
-IPAddress local_IP(192, 168, 0, 0); //ESP IP
-IPAddress gateway(192, 168, 0, 0);
+IPAddress local_IP(10, 20, 30, 143); //ESP IP
+IPAddress gateway(10, 20, 30, 250);
 IPAddress subnet(255, 255, 255, 0);
 
 // Server IP and port
-const char* server_ip = "192.168.0.0";  // Replace with the IP address of your Java server
+const char* server_ip = "10.20.30.142";  // Replace with the IP address of your Java server
 const uint16_t server_port = 3014;
 
 WiFiUDP udp;

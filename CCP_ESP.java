@@ -36,7 +36,7 @@ public class CCP_ESP {
                     System.out.println("Sent to BR: " + ackMessage);
 
                     // Simulate sending the EXEC mock message
-                    String execMockMessage = "{\"client_type\": \"CCP\", \"message\": \"EXEC\", \"client_id\": \"BRXX\", \"sequence_number\": \"2\", \"action\": \"FFASTC\"}";
+                    String execMockMessage = "{\"client_type\": \"CCP\", \"message\": \"EXEC\", \"client_id\": \"BRXX\", \"sequence_number\": \"2\", \"action\": \"RSLOWC\"}";
                     DatagramPacket execPacket = new DatagramPacket(execMockMessage.getBytes(), execMockMessage.length(), address, clientPort);
                     socket.send(execPacket);
                     System.out.println("Sent to BR: " + execMockMessage);
