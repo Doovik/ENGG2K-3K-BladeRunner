@@ -4,7 +4,7 @@
 #include <NewPing.h>
 
 // WiFi credentials
-const char* ssid = "";
+const char* ssid = "ENGG2K3K";
 const char* password = "";
 
 // Static IP address configuration
@@ -176,9 +176,6 @@ void handleCommand(const char* action) {
   }
 }
 
-
-
-
 void loop() {
 
   checkEmergencyBraking();
@@ -262,5 +259,5 @@ void loop() {
     Serial.println("No packet received");
   }
 
-  delay(1000);  
+  delay(500);  
 }
