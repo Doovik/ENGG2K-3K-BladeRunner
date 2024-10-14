@@ -10,8 +10,11 @@ import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
+import org.json.JSONObject;
 
 public class CCP {
+    private static final int PORT = 3014;
+    private static final int BUFFER_SIZE = 256;
     //enum for current carriage status
     enum Status {
         STOPC, //stopped + door closed
@@ -35,14 +38,18 @@ public class CCP {
     final static String client = "ccp";
     public static void main(String[] args) {
         //UDP
-        int port = 3014;
-        try (DatagramSocket socket = new DatagramSocket(port)) {
-            byte[] buffer = new byte[256];
 
-            System.out.println("Server is listening on port " + port);
+        Boolean checkedIn = false;
 
-            jsonRead(); //TODO put jsonRead and jsonWrite inside the loop
-            jsonWrite(jsonWrite, "TEST-MSG", "TEST-ID", 9999, Status.ERR, "TEST-SID");
+        String status = "";
+
+        Boolean statusChanged = false;
+
+        try (DatagramSocket socket = new DatagramSocket(PORT)) {
+            byte[] buffer = new byte[BUFFER_SIZE];
+
+            System.out.println("Server is listening on port " + PORT);
+
             while (true) {
                 DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
                 socket.receive(packet);
@@ -50,13 +57,55 @@ public class CCP {
                 String received = new String(packet.getData(), 0, packet.getLength());
                 System.out.println("Received from client: " + received);
 
+                InetAddress address = packet.getAddress();
+                int clientPort = packet.getPort();
+
+                JSONObject toSend = new JSONObject();
+
                 // Send response to client
+
+                /*
                 String response = "Echo: " + received;
                 InetAddress address = packet.getAddress();
                 int clientPort = packet.getPort();
                 packet = new DatagramPacket(response.getBytes(), response.length(), address, clientPort);
                 socket.send(packet);
-                //Write to JSON
+                */
+
+                // ///////////////////////////// //
+
+                // Send initialisation message if not sent or not acknowledged
+                if (!checkedIn) {
+                    String initiationMessage = jsonWrite(toSend, "CCIN", "BRXX", "s_ccp");
+                    packet = new DatagramPacket(initiationMessage.getBytes(), initiationMessage.length(), address, clientPort);
+                    socket.send(packet);
+                }
+                JSONObject json = new JSONObject(received);
+                String messageContent = json.getString("message");
+
+                // Check if initialisation was acknowledged
+                if (messageContent.equals("AKIN")) {
+                    checkedIn = true;
+                } else { continue; }
+
+                // Acknowledge received message
+                if (messageContent.equals("EXEC")) {
+                    String acknowledge = jsonWrite(toSend, "AKEX", "BRXX", "s_ccp");
+                    packet = new DatagramPacket(acknowledge.getBytes(), acknowledge.length(), address, clientPort);
+                    socket.send(packet);
+                }
+
+                // CCP status message
+                // TODO send upon completing an action + actual status
+                if(statusChanged) {
+                    String statusMsg = jsonWrite(toSend, "STAT", "BRXX", "s_ccp", "ERR");
+                    packet = new DatagramPacket(statusMsg.getBytes(), statusMsg.length(), address, clientPort);
+                    socket.send(packet);
+
+                    statusChanged = false;
+                }
+                
+                // ///////////////////////////// //
                 
             }
         } catch (Exception ex) {
@@ -71,16 +120,14 @@ public class CCP {
     }
 
     @SuppressWarnings("unchecked")
-    static void jsonWrite(JSONObject jobj, String message, String clientID, int sequence_number, Status status, String stationID) {
+    static String jsonWrite(JSONObject jobj, String message, String clientID, String sequence_number) {
         jobj.put("client_type", client);
         jobj.put("message", message);
         jobj.put("client_id", clientID);
-        jobj.put("sequence_number", " ");
-        jobj.put("action", action);
-        jobj.put("status", status.toString());
-        if (status == Status.ERR) {
-            jobj.put("station_id", stationID);
-        }
+        jobj.put("sequence_number", sequence_number);
+
+        return jobj.toString();
+        /*
         try (FileWriter file = new FileWriter("C:\\ENGG3000_BR_2\\New folder\\ENGG2K-3K-BladeRunner\\test.json")) {
             //We can write any JSONArray or JSONObject instance to the file
             file.write(jobj.toJSONString()); 
@@ -89,6 +136,16 @@ public class CCP {
         } catch (IOException e) {
             e.printStackTrace();
         }
+        */
+    }
+    static String jsonWrite(JSONObject jobj, String message, String clientID, String sequence_number, String status) {
+        jobj.put("client_type", client);
+        jobj.put("message", message);
+        jobj.put("client_id", clientID);
+        jobj.put("sequence_number", sequence_number);
+        jobj.put("status", status);
+
+        return jobj.toString();
     }
 
     static void jsonRead() {
@@ -100,8 +157,6 @@ public class CCP {
             client_id = (String) obj.get("client_id");
             timestamp = (String) obj.get("timestamp");
             action = (String) obj.get("action");
-            System.out.println(client_type + "\n" + message + "\n" + client_id + "\n" + 
-                               timestamp + "\n" + action + "\n" + action); //TODO - remove or replace with logger
         }
         catch(FileNotFoundException e) {
             e.printStackTrace();
