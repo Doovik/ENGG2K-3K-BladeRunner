@@ -3,12 +3,12 @@ import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
 //JSON imports
-import org.json.simple.*;
+//import org.json.simple.*;
 import org.json.simple.parser.*;
 //import java.util.Iterator;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
-import java.io.FileWriter;
+//import java.io.FileWriter;
 import java.io.IOException;
 import org.json.JSONObject;
 
@@ -28,9 +28,10 @@ public class CCP {
     static String client_type;
     static String message;
     static String client_id;
-    static String timestamp;
+    static String sequence_number;
     static String action;
-    static String fileLoc = "";
+    static String status;
+    static String br_id;
     //initialise JSONParser
     static JSONParser parser = new JSONParser();
     static JSONObject jsonWrite = new JSONObject();
@@ -45,20 +46,23 @@ public class CCP {
 
         Boolean statusChanged = false;
 
-        try (DatagramSocket socket = new DatagramSocket(PORT)) {
+        try(DatagramSocket socket = new DatagramSocket(PORT)) {
+            
             byte[] buffer = new byte[BUFFER_SIZE];
 
             System.out.println("Server is listening on port " + PORT);
 
             while (true) {
                 DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
-                socket.receive(packet);
+                //socket.receive(packet);
 
-                String received = new String(packet.getData(), 0, packet.getLength());
-                System.out.println("Received from client: " + received);
+                //String received = new String(packet.getData(), 0, packet.getLength());
+                //System.out.println("Received from client: " + received);
 
-                InetAddress address = packet.getAddress();
-                int clientPort = packet.getPort();
+                //InetAddress address = packet.getAddress();
+                //int clientPort = packet.getPort();
+                InetAddress address = InetAddress.getByName("10.20.30.177");
+                int clientPort = 2000;
 
                 JSONObject toSend = new JSONObject();
 
@@ -76,10 +80,19 @@ public class CCP {
 
                 // Send initialisation message if not sent or not acknowledged
                 if (!checkedIn) {
+                    System.out.println("something");
                     String initiationMessage = jsonWrite(toSend, "CCIN", "BRXX", "s_ccp");
                     packet = new DatagramPacket(initiationMessage.getBytes(), initiationMessage.length(), address, clientPort);
                     socket.send(packet);
                 }
+                
+                socket.receive(packet);
+
+                System.out.println(packet.getLength());
+
+                String received = new String(packet.getData(), 0, packet.getLength());
+                System.out.println("Received from client: " + received);
+
                 JSONObject json = new JSONObject(received);
                 String messageContent = json.getString("message");
 
@@ -155,8 +168,10 @@ public class CCP {
             client_type = (String) obj.get("client_type");
             message = (String) obj.get("message");
             client_id = (String) obj.get("client_id");
-            timestamp = (String) obj.get("timestamp");
+            sequence_number = (String) obj.get("sequence number");
             action = (String) obj.get("action");
+            status = (String) obj.get("status");
+            br_id = (String) obj.get("br_id");
         }
         catch(FileNotFoundException e) {
             e.printStackTrace();
