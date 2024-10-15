@@ -18,11 +18,46 @@ const uint16_t server_port = 3014;
 
 WiFiUDP udp;
 
+// CCP status enum
+enum CCPStatus {
+  STOPC,
+  STOPO,
+  FSLOWC,
+  FFASTC,
+  RSLOWC,
+  OFLN,
+  UNKNOWN
+};
+
 // Variable to store the most recent packet received
 String mostRecentPacket = "";
 
 // CCP status
-String ccpStatus = "STOPC"; // Example status, replace with actual status
+CCPStatus ccpStatus = STOPC; // Default status
+
+// Function to convert string to CCPStatus enum
+CCPStatus getStatusFromString(const String& statusStr) {
+  if (statusStr == "STOPC") return STOPC;
+  if (statusStr == "STOPO") return STOPO;
+  if (statusStr == "FSLOWC") return FSLOWC;
+  if (statusStr == "FFASTC") return FFASTC;
+  if (statusStr == "RSLOWC") return RSLOWC;
+  if (statusStr == "OFLN") return OFLN;
+  return UNKNOWN;
+}
+
+// Function to convert CCPStatus enum back to string
+const char* getStringFromStatus(CCPStatus status) {
+  switch (status) {
+    case STOPC: return "STOPC";
+    case STOPO: return "STOPO";
+    case FSLOWC: return "FSLOWC";
+    case FFASTC: return "FFASTC";
+    case RSLOWC: return "RSLOWC";
+    case OFLN: return "OFLN";
+    default: return "UNKNOWN";
+  }
+}
 
 // Sequence numbers
 int execSequenceNumber = 2;
@@ -34,11 +69,6 @@ const int S1_TRIGGER_PIN = 25;
 const int S1_ECHO_PIN = 26;
 const int S2_TRIGGER_PIN = 27;
 const int S2_ECHO_PIN = 14;
-
-const int S1_RED_PIN = 16;
-const int S1_GREEN_PIN = 17;
-const int S2_RED_PIN = 18;
-const int S2_GREEN_PIN = 19;
 
 const int pwmPin = 33;
 const int dirPin1 = 2;
@@ -54,10 +84,6 @@ NewPing S2_sonar(S2_TRIGGER_PIN, S2_ECHO_PIN, maxDist);
 void setup()
 {
   Serial.begin(9600);
-  pinMode(S1_RED_PIN, OUTPUT);
-  pinMode(S1_GREEN_PIN, OUTPUT);
-  pinMode(S2_RED_PIN, OUTPUT);
-  pinMode(S2_GREEN_PIN, OUTPUT);
   pinMode(dirPin1, OUTPUT);
   pinMode(dirPin2, OUTPUT);
   pinMode(pwmPin, OUTPUT);
@@ -111,68 +137,203 @@ void setup()
 
 void stopBladeRunner() {
   analogWrite(pwmPin, 0);
-  Serial.println("Blade Runner has Stopped.");
 }
 
 void goForwardSlow() {
-  digitalWrite(dirPin1, HIGH);
-  digitalWrite(dirPin2, LOW);
-  analogWrite(pwmPin, 64);
-  Serial.println("Moving slowly forward.");
+  switch(ccpStatus) {
+    case FFASTC:
+      for(int dutyCycle = 150; dutyCycle > 64; dutyCycle--) {
+        analogWrite(pwmPin, dutyCycle);
+        delay(10);
+      }
+      break;
+    case STOPC:
+      digitalWrite(dirPin1, HIGH);
+      digitalWrite(dirPin2, LOW);
+      for(int dutyCycle = 0; dutyCycle < 64; dutyCycle++) {
+        analogWrite(pwmPin, dutyCycle);
+        delay(10);
+      }
+      break;
+    case STOPO:
+      digitalWrite(dirPin1, HIGH);
+      digitalWrite(dirPin2, LOW);
+      for(int dutyCycle = 0; dutyCycle < 64; dutyCycle++) {
+        analogWrite(pwmPin, dutyCycle);
+        delay(10);
+      }
+      break;
+    case RSLOWC:
+      for(int dutyCycle = 64; dutyCycle > 0; dutyCycle--) {
+        analogWrite(pwmPin, dutyCycle);
+        delay(10);
+      }
+      digitalWrite(dirPin1, HIGH);
+      digitalWrite(dirPin2, LOW);
+      for(int dutyCycle = 0; dutyCycle < 64; dutyCycle++) {
+        analogWrite(pwmPin, dutyCycle);
+        delay(10);
+      }
+      break;
+    case FSLOWC:
+      digitalWrite(dirPin1, HIGH);
+      digitalWrite(dirPin2, LOW);
+      analogWrite(pwmPin, 64);
+      break;
+  }
 }
 
 void goForwardFast() {
-  digitalWrite(dirPin1, HIGH);
-  digitalWrite(dirPin2, LOW);
-  analogWrite(pwmPin, 150);
-  Serial.println("Moving fast forward.");
+  switch (ccpStatus) {
+    case FFASTC:
+      // Already fast, no soft start needed
+      analogWrite(pwmPin, 150);
+      break;
+
+    case STOPC:
+      digitalWrite(dirPin1, HIGH); // Forward direction
+      digitalWrite(dirPin2, LOW);
+      for (int dutyCycle = 0; dutyCycle < 150; dutyCycle++) {
+        analogWrite(pwmPin, dutyCycle);
+        delay(10);
+      }
+      break;
+    case STOPO:
+      digitalWrite(dirPin1, HIGH); // Forward direction
+      digitalWrite(dirPin2, LOW);
+      for (int dutyCycle = 0; dutyCycle < 150; dutyCycle++) {
+        analogWrite(pwmPin, dutyCycle);
+        delay(10);
+      }
+      break;
+    case FSLOWC:
+      // Soft start from stop or slow to fast
+      digitalWrite(dirPin1, HIGH);
+      digitalWrite(dirPin2, LOW);
+      for (int dutyCycle = 64; dutyCycle < 150; dutyCycle++) {
+        analogWrite(pwmPin, dutyCycle);
+        delay(10);
+      }
+      break;
+
+    case RSLOWC:
+      // Soft stop from reverse to fast forward
+      for (int dutyCycle = 64; dutyCycle > 0; dutyCycle--) {
+        analogWrite(pwmPin, dutyCycle);
+        delay(10);
+      }
+      digitalWrite(dirPin1, HIGH); // Forward direction
+      digitalWrite(dirPin2, LOW);
+      for (int dutyCycle = 0; dutyCycle < 150; dutyCycle++) {
+        analogWrite(pwmPin, dutyCycle);
+        delay(10);
+      }
+      break;
+  }
 }
 
 void reverseSlow() {
-  digitalWrite(dirPin1, LOW);
-  digitalWrite(dirPin2, HIGH);
-  analogWrite(pwmPin, 64);
-  Serial.println("Moving slowly backwards.");
+  switch (ccpStatus) {
+    case STOPC:
+      digitalWrite(dirPin1, LOW); // Reverse direction
+      digitalWrite(dirPin2, HIGH);
+      for (int dutyCycle = 0; dutyCycle < 64; dutyCycle++) {
+        analogWrite(pwmPin, dutyCycle);
+        delay(10);
+      }
+      break;
+    case STOPO:
+      digitalWrite(dirPin1, LOW); // Reverse direction
+      digitalWrite(dirPin2, HIGH);
+      for (int dutyCycle = 0; dutyCycle < 64; dutyCycle++) {
+        analogWrite(pwmPin, dutyCycle);
+        delay(10);
+      }
+      break;
+    case FSLOWC:
+      // Soft start from stop or forward to slow reverse
+      for (int dutyCycle = 64; dutyCycle > 0; dutyCycle--) {
+        analogWrite(pwmPin, dutyCycle);
+        delay(10);
+      }
+      digitalWrite(dirPin1, LOW); // Reverse direction
+      digitalWrite(dirPin2, HIGH);
+      for (int dutyCycle = 0; dutyCycle < 64; dutyCycle++) {
+        analogWrite(pwmPin, dutyCycle);
+        delay(10);
+      }
+      break;
+    case FFASTC:
+      // Soft start from stop or forward to slow reverse
+      for (int dutyCycle = 150; dutyCycle > 0; dutyCycle--) {
+        analogWrite(pwmPin, dutyCycle);
+        delay(10);
+      }
+      digitalWrite(dirPin1, LOW); // Reverse direction
+      digitalWrite(dirPin2, HIGH);
+      for (int dutyCycle = 0; dutyCycle < 64; dutyCycle++) {
+        analogWrite(pwmPin, dutyCycle);
+        delay(10);
+      }
+      break;
+
+    case RSLOWC:
+      // Already moving slowly in reverse, no soft start needed
+      analogWrite(pwmPin, 64);
+      break;
+  }
 }
 
 void checkEmergencyBraking()  {
   int distance = 0;
-  if(ccpStatus == "RSLOWC") {
-    distance = S2_sonar.ping_cm();
-    Serial.print("Rear sensor distance: ");
-    Serial.println(distance);
-  } else {
-    distance = S1_sonar.ping_cm();
-    Serial.print("Front sensor distance: ");
-    Serial.println(distance);
+  // Check the appropriate sensor based on CCP status
+  switch (ccpStatus) {
+    case FSLOWC:
+      distance = S1_sonar.ping_cm();
+      break;
+    case FFASTC:
+      // Moving forward, check the front sensor
+      distance = S1_sonar.ping_cm();
+      break;
+    case RSLOWC:
+      // Moving backward, check the rear sensor
+      distance = S2_sonar.ping_cm();
+      Serial.print("Rear sensor distance: ");
+      break;
+    default:
+      return;
   }
 
   // If distance is between 1 and 5 cm, trigger an emergency stop
   if (distance >= minBrakingDist && distance <= maxBrakingDist) {
     stopBladeRunner();
-    Serial.println("Emergency Stop: Object detected within 1-5 cm.");
   }
 }
 
 void handleCommand(const char* action) {
-  if (strcmp(action, "STOPC") == 0) {
-    stopBladeRunner();
-    ccpStatus = "STOPC";
-  } else if (strcmp(action, "STOPO") == 0) {
-    stopBladeRunner();
-    ccpStatus = "STOPO";
-  } else if (strcmp(action, "FSLOWC") == 0) {
-    goForwardSlow();
-    ccpStatus = "FSLOWC";
-  } else if (strcmp(action, "FFASTC") == 0) {
-    goForwardFast();
-    ccpStatus = "FFASTC";
-  } else if (strcmp(action, "RSLOWC") == 0) {
-    reverseSlow();
-    ccpStatus = "RSLOWC";
-  } else if (strcmp(action, "DISCONNECT") == 0) {
-    stopBladeRunner();
-    ccpStatus = "OFLN";
+
+  ccpStatus = getStatusFromString(action);
+  switch(ccpStatus) {
+    case STOPC:
+      stopBladeRunner();
+      break;
+    case STOPO:
+      stopBladeRunner();
+      break;
+    case FSLOWC:
+      goForwardSlow();
+      break;
+    case FFASTC:
+      goForwardFast();
+      break;
+    case RSLOWC:
+      reverseSlow();
+      break;
+    case OFLN:
+      stopBladeRunner();
+      break;
+    default:
+      return;
   }
 }
 
@@ -210,7 +371,7 @@ void loop() {
       responseDoc["message"] = "STAT";
       responseDoc["client_id"] = clientId;
       responseDoc["sequence_number"] = String(strqSequenceNumber).c_str();
-      responseDoc["status"] = ccpStatus;
+      responseDoc["status"] = getStringFromStatus(ccpStatus);
 
       char responseBuffer[256];
       size_t responseSize = serializeJson(responseDoc, responseBuffer);
