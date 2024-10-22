@@ -78,6 +78,9 @@ const int maxDist = 450;
 const int minBrakingDist = 1;
 const int maxBrakingDist = 5;
 
+const int IRSensorPin = A0;
+const int IRThreshold = 500;
+
 NewPing S1_sonar(S1_TRIGGER_PIN, S1_ECHO_PIN, maxDist);
 NewPing S2_sonar(S2_TRIGGER_PIN, S2_ECHO_PIN, maxDist);
 
@@ -87,6 +90,7 @@ void setup()
   pinMode(dirPin1, OUTPUT);
   pinMode(dirPin2, OUTPUT);
   pinMode(pwmPin, OUTPUT);
+  pinMode(IRSensorPin, INPUT);
   digitalWrite(dirPin1, HIGH);
   digitalWrite(dirPin2, LOW);
 
@@ -300,12 +304,34 @@ void checkEmergencyBraking()  {
       distance = S2_sonar.ping_cm();
       break;
     default:
-      return;
+      break;
   }
 
   // If distance is between 1 and 5 cm, trigger an emergency stop
   if (distance >= minBrakingDist && distance <= maxBrakingDist) {
     stopBladeRunner();
+  }
+}
+
+void checkIRSensor() {
+  int lightValue;
+  switch (ccpStatus) {
+    case FSLOWC:
+      lightValue = analogRead(IRSensorPin);
+      
+      if(lightValue > IRThreshold) {
+        stopBladeRunner();
+      }
+      break;
+    case RSLOWC:
+      lightValue = analogRead(IRSensorPin);
+      
+      if(lightValue > IRThreshold) {
+        stopBladeRunner();
+      }
+      break;
+    default:
+      break;
   }
 }
 
@@ -339,7 +365,7 @@ void handleCommand(const char* action) {
 void loop() {
 
   checkEmergencyBraking();
-
+  checkIRSensor();
   // Check for incoming UDP packets
   int packetSize = udp.parsePacket();
   if (packetSize) {
