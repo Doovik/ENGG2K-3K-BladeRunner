@@ -65,7 +65,6 @@ int execSequenceNumber = 2;
 int strqSequenceNumber = 1;
 int lastExecSequenceNumber = 0; // To track the highest EXEC sequence number
 
-
 const int S1_TRIGGER_PIN = 25;
 const int S1_ECHO_PIN = 26;
 const int S2_TRIGGER_PIN = 27;
@@ -83,7 +82,6 @@ const int IRSensorPin = 12;
 const int IRThreshold = 500;
 
 const int ledPins[4] = {19, 18, 17, 16};
-
 
 NewPing S1_sonar(S1_TRIGGER_PIN, S1_ECHO_PIN, maxDist);
 NewPing S2_sonar(S2_TRIGGER_PIN, S2_ECHO_PIN, maxDist);
@@ -109,10 +107,8 @@ void setup()
   // Wait for connection
   while (WiFi.status() != WL_CONNECTED) {
     delay(1000);
-    Serial.println("Connecting to WiFi...");
   }
 
-  Serial.println("Connected to WiFi");
 
   // Send "I am alive" message until confirmation is received
   while (true) {
@@ -120,7 +116,6 @@ void setup()
     udp.beginPacket(server_ip, server_port);
     udp.println("I am alive");
     udp.endPacket();
-    Serial.println("Sent: I am alive");
 
     // Wait for a short period before checking for a response
     delay(1000);
@@ -133,14 +128,12 @@ void setup()
       if (len > 0) {
         incomingPacket[len] = 0;
       }
-      Serial.printf("Received from CCP: %s\n", incomingPacket);
 
       // Store the most recent packet
       mostRecentPacket = String(incomingPacket);
 
       // Check if the message is "ACK"
       if (mostRecentPacket.equals("ACK")) {
-        Serial.println("Received 'ACK' message from server.");
         break; // Exit the loop if confirmation is received
       }
     }
@@ -315,6 +308,25 @@ void reverseSlow() {
   }
 }
 
+void sendStopcStatus() {
+  StaticJsonDocument<256> responseDoc;
+  responseDoc["client_type"] = "CCP";
+  responseDoc["message"] = "STAT";
+  responseDoc["client_id"] = "BR14"; // Replace with actual client ID if available
+  responseDoc["sequence_number"] = String(strqSequenceNumber).c_str();
+  responseDoc["status"] = "STOPC";
+
+  char responseBuffer[256];
+  size_t responseSize = serializeJson(responseDoc, responseBuffer);
+
+  udp.beginPacket(server_ip, server_port);
+  udp.write((const uint8_t*)responseBuffer, responseSize); // Cast to const uint8_t*
+  udp.endPacket();
+
+  // Increment the sequence number for STRQ messages
+  strqSequenceNumber++;
+}
+
 void checkEmergencyBraking()  {
   int distance = 0;
   // Check the appropriate sensor based on CCP status
@@ -337,8 +349,8 @@ void checkEmergencyBraking()  {
   // If distance is between 1 and 5 cm, trigger an emergency stop
   if (distance >= minBrakingDist && distance <= maxBrakingDist) {
     stopBladeRunner();
-
     handleLEDs(ledPins[3]);
+    sendStopcStatus(); // Send STOPC status to CCP
   }
 }
 
@@ -351,7 +363,7 @@ void checkIRSensor() {
       if(lightValue > IRThreshold) {
         stopBladeRunner();
         handleLEDs(ledPins[2]);
-
+        sendStopcStatus(); // Send STOPC status to CCP
       }
       break;
     case RSLOWC:
@@ -360,7 +372,7 @@ void checkIRSensor() {
       if(lightValue > IRThreshold) {
         stopBladeRunner();
         handleLEDs(ledPins[2]);
-
+        sendStopcStatus(); // Send STOPC status to CCP
       }
       break;
     default:
@@ -369,7 +381,6 @@ void checkIRSensor() {
 }
 
 void handleCommand(const char* action) {
-
   ccpStatus = getStatusFromString(action);
   switch(ccpStatus) {
     case STOPC:
@@ -413,8 +424,8 @@ void loop() {
 
     checkEmergencyBraking();
     checkIRSensor();
-
   }
+
   // Check for incoming UDP packets
   int packetSize = udp.parsePacket();
   if (packetSize) {
@@ -423,14 +434,11 @@ void loop() {
     if (len > 0) {
       incomingPacket[len] = 0;
     }
-    Serial.printf("Received from CCP: %s\n", incomingPacket);
 
     // Parse the received message
     StaticJsonDocument<256> doc;
     DeserializationError error = deserializeJson(doc, incomingPacket);
     if (error) {
-      Serial.print(F("deserializeJson() failed: "));
-      Serial.println(error.f_str());
       return;
     }
 
@@ -453,7 +461,6 @@ void loop() {
       udp.beginPacket(server_ip, server_port);
       udp.write((const uint8_t*)responseBuffer, responseSize); // Cast to const uint8_t*
       udp.endPacket();
-      Serial.printf("Sent to CCP: %s\n", responseBuffer);
 
       // Increment the sequence number for STRQ messages
       strqSequenceNumber++;
@@ -482,15 +489,10 @@ void loop() {
       udp.beginPacket(server_ip, server_port);
       udp.write((const uint8_t*)responseBuffer, responseSize); // Cast to const uint8_t*
       udp.endPacket();
-      Serial.printf("Sent to CCP: %s\n", responseBuffer);
 
       // Increment the sequence number for EXEC messages
       execSequenceNumber++;
     }
-
     // Print the most recent packet
-    Serial.printf("Most recent packet: %s\n", mostRecentPacket.c_str());
-  } else {
-    Serial.println("No packet received");
-  }
+  } 
 }
