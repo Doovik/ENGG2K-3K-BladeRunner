@@ -79,7 +79,7 @@ const int maxDist = 450;
 const int minBrakingDist = 1;
 const int maxBrakingDist = 5;
 
-const int IRSensorPin = A0;
+const int IRSensorPin = 12;
 const int IRThreshold = 500;
 
 const int ledPins[4] = {19, 18, 17, 16};
@@ -402,10 +402,19 @@ void handleCommand(const char* action) {
   }
 }
 
-void loop() {
+unsigned long previousMillis = 0;
+const long interval = 500;
 
-  checkEmergencyBraking();
-  checkIRSensor();
+void loop() {
+  unsigned long currentMillis = millis();
+
+  if (currentMillis - previousMillis >= interval) {
+    previousMillis = currentMillis;
+
+    checkEmergencyBraking();
+    checkIRSensor();
+
+  }
   // Check for incoming UDP packets
   int packetSize = udp.parsePacket();
   if (packetSize) {
@@ -484,6 +493,4 @@ void loop() {
   } else {
     Serial.println("No packet received");
   }
-
-  delay(500);  
 }
