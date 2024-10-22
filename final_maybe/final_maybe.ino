@@ -86,6 +86,9 @@ const int ledPins[4] = {19, 18, 17, 16};
 NewPing S1_sonar(S1_TRIGGER_PIN, S1_ECHO_PIN, maxDist);
 NewPing S2_sonar(S2_TRIGGER_PIN, S2_ECHO_PIN, maxDist);
 
+unsigned long lastPacketTime = 0;
+const unsigned long timeoutInterval = 5000; // 5 seconds timeout interval
+
 void setup()
 {
   Serial.begin(9600);
@@ -133,6 +136,7 @@ void setup()
 
       // Check if the message is "ACK"
       if (mostRecentPacket.equals("ACK")) {
+        lastPacketTime = millis(); // Update the last packet time
         break; // Exit the loop if confirmation is received
       }
     }
@@ -463,6 +467,7 @@ void loop() {
 
       // Increment the sequence number for STRQ messages
       strqSequenceNumber++;
+      lastPacketTime = millis(); // Update the last packet time
     } else if (strcmp(messageType, "EXEC") == 0) {
       // Handle MCP Command Message
       const char* action = doc["action"];
@@ -477,7 +482,41 @@ void loop() {
       }
 
       // Removed the ACK response for EXEC messages
+      lastPacketTime = millis(); // Update the last packet time
     }
     // Print the most recent packet
   } 
+
+  // Check for timeout
+  if (millis() - lastPacketTime > timeoutInterval) {
+    // Revert to sending "I am alive" messages
+    while (true) {
+      // Send "I am alive" message
+      udp.beginPacket(server_ip, server_port);
+      udp.println("I am alive");
+      udp.endPacket();
+
+      // Wait for a short period before checking for a response
+      delay(1000);
+
+      // Check for incoming UDP packets
+      int packetSize = udp.parsePacket();
+      if (packetSize) {
+        char incomingPacket[255];
+        int len = udp.read(incomingPacket, 255);
+        if (len > 0) {
+          incomingPacket[len] = 0;
+        }
+
+        // Store the most recent packet
+        mostRecentPacket = String(incomingPacket);
+
+        // Check if the message is "ACK"
+        if (mostRecentPacket.equals("ACK")) {
+          lastPacketTime = millis(); // Update the last packet time
+          break; // Exit the loop if confirmation is received
+        }
+      }
+    }
+  }
 }
