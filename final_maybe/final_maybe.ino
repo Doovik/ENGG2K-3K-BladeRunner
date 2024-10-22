@@ -2,6 +2,7 @@
 #include <WiFiUdp.h> // WiFi Library
 #include <ArduinoJson.h> // Json Interpretation
 #include <NewPing.h> // US Sensor Library
+#include <stdio.h>
 
 // WiFi credentials
 const char* ssid = "ENGG2K3K";
@@ -81,6 +82,9 @@ const int maxBrakingDist = 5;
 const int IRSensorPin = A0;
 const int IRThreshold = 500;
 
+const int ledPins[4] = {19, 18, 17, 16};
+
+
 NewPing S1_sonar(S1_TRIGGER_PIN, S1_ECHO_PIN, maxDist);
 NewPing S2_sonar(S2_TRIGGER_PIN, S2_ECHO_PIN, maxDist);
 
@@ -91,6 +95,10 @@ void setup()
   pinMode(dirPin2, OUTPUT);
   pinMode(pwmPin, OUTPUT);
   pinMode(IRSensorPin, INPUT);
+  pinMode(ledPins[0], OUTPUT);
+  pinMode(ledPins[1], OUTPUT);
+  pinMode(ledPins[2], OUTPUT);
+  pinMode(ledPins[3], OUTPUT);
   digitalWrite(dirPin1, HIGH);
   digitalWrite(dirPin2, LOW);
 
@@ -135,6 +143,25 @@ void setup()
         Serial.println("Received 'ACK' message from server.");
         break; // Exit the loop if confirmation is received
       }
+    }
+  }
+}
+
+void disconnectFun() {
+  while(true) {
+    delay(250);
+    digitalWrite(ledPins[2], LOW);
+    delay(250);
+    digitalWrite(ledPins[2], HIGH);
+  }
+}
+
+void handleLEDs(int onLED) {
+  for(int i = 0; i < (sizeof(ledPins) / sizeof(ledPins[0])); i++) {
+    if(ledPins[i] == onLED) {
+      digitalWrite(onLED, HIGH);
+    } else {
+      digitalWrite(ledPins[i], LOW);
     }
   }
 }
@@ -310,6 +337,8 @@ void checkEmergencyBraking()  {
   // If distance is between 1 and 5 cm, trigger an emergency stop
   if (distance >= minBrakingDist && distance <= maxBrakingDist) {
     stopBladeRunner();
+
+    handleLEDs(ledPins[3]);
   }
 }
 
@@ -321,6 +350,8 @@ void checkIRSensor() {
       
       if(lightValue > IRThreshold) {
         stopBladeRunner();
+        handleLEDs(ledPins[2]);
+
       }
       break;
     case RSLOWC:
@@ -328,6 +359,8 @@ void checkIRSensor() {
       
       if(lightValue > IRThreshold) {
         stopBladeRunner();
+        handleLEDs(ledPins[2]);
+
       }
       break;
     default:
@@ -341,21 +374,28 @@ void handleCommand(const char* action) {
   switch(ccpStatus) {
     case STOPC:
       stopBladeRunner();
+      handleLEDs(ledPins[2]);
       break;
     case STOPO:
       stopBladeRunner();
+      handleLEDs(ledPins[2]);
       break;
     case FSLOWC:
       goForwardSlow();
+      handleLEDs(ledPins[1]);
       break;
     case FFASTC:
       goForwardFast();
+      handleLEDs(ledPins[0]);
       break;
     case RSLOWC:
       reverseSlow();
+      handleLEDs(ledPins[1]);
       break;
     case OFLN:
       stopBladeRunner();
+      handleLEDs(ledPins[2]);
+      disconnectFun();
       break;
     default:
       return;
