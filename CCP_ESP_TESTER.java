@@ -39,15 +39,22 @@ public class CCP_ESP_TESTER {
                     socket.send(ackPacket);
                     System.out.println("Sent to BR: " + ackMessage);
 
-                    // Simulate sending the mock message
-                    System.out.println("Enter mock message file name (without .json):");
+                    // Prompt user for EXEC mock message file name
+                    System.out.println("Enter EXEC mock message file name (without .json):");
                     String execFileName = scanner.nextLine() + ".json";
                     String execMockMessage = new String(Files.readAllBytes(Paths.get(execFileName)));
                     DatagramPacket execPacket = new DatagramPacket(execMockMessage.getBytes(), execMockMessage.length(), address, clientPort);
                     socket.send(execPacket);
                     System.out.println("Sent to BR: " + execMockMessage);
 
-                    
+                    // Prompt user for STRQ mock message file name
+                    System.out.println("Enter STRQ mock message file name (without .json):");
+                    String strqFileName = scanner.nextLine() + ".json";
+                    String strqMockMessage = new String(Files.readAllBytes(Paths.get(strqFileName)));
+                    DatagramPacket strqPacket = new DatagramPacket(strqMockMessage.getBytes(), strqMockMessage.length(), address, clientPort);
+                    socket.send(strqPacket);
+                    System.out.println("Sent to BR: " + strqMockMessage);
+
                     continue;
                 }
 

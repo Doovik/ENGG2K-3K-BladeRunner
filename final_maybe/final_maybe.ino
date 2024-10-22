@@ -109,7 +109,6 @@ void setup()
     delay(1000);
   }
 
-
   // Send "I am alive" message until confirmation is received
   while (true) {
     // Send "I am alive" message
@@ -452,7 +451,7 @@ void loop() {
       responseDoc["client_type"] = "CCP";
       responseDoc["message"] = "STAT";
       responseDoc["client_id"] = clientId;
-      responseDoc["sequence_number"] = String(strqSequenceNumber).c_str();
+      responseDoc["sequence_number"] = sequenceNumber; // Use the received sequence number
       responseDoc["status"] = getStringFromStatus(ccpStatus);
 
       char responseBuffer[256];
@@ -477,21 +476,7 @@ void loop() {
         lastExecSequenceNumber = incomingSequenceNumber;
       }
 
-      StaticJsonDocument<256> responseDoc;
-      responseDoc["client_type"] = "CCP";
-      responseDoc["message"] = "AKEX";
-      responseDoc["client_id"] = clientId;
-      responseDoc["sequence_number"] = String(execSequenceNumber).c_str();
-
-      char responseBuffer[256];
-      size_t responseSize = serializeJson(responseDoc, responseBuffer);
-
-      udp.beginPacket(server_ip, server_port);
-      udp.write((const uint8_t*)responseBuffer, responseSize); // Cast to const uint8_t*
-      udp.endPacket();
-
-      // Increment the sequence number for EXEC messages
-      execSequenceNumber++;
+      // Removed the ACK response for EXEC messages
     }
     // Print the most recent packet
   } 
