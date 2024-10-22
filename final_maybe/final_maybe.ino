@@ -298,7 +298,6 @@ void checkEmergencyBraking()  {
     case RSLOWC:
       // Moving backward, check the rear sensor
       distance = S2_sonar.ping_cm();
-      Serial.print("Rear sensor distance: ");
       break;
     default:
       return;
