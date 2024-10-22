@@ -1,0 +1,7 @@
+{
+    "client_type": "CCP",
+    "message": "EXEC",
+    "client_id": "BR14",
+    "sequence_number": "5",
+    "action": "RSLOWC"
+  }
