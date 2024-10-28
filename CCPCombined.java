@@ -1,12 +1,9 @@
-//UDP imports
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
-//JSON imports
+import org.json.JSONObject;
 import org.json.simple.parser.JSONParser;
 import org.json.simple.parser.ParseException;
-import org.json.JSONObject;
-import java.util.Scanner;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
@@ -39,17 +36,17 @@ public class CCPCombined {
     static JSONObject jsonWrite = new JSONObject();
 
     final static String client = "ccp";
-
     private static String mostRecentPacket = "";
 
     public static void main(String[] args) {
+        Boolean checkedIn = false;
+        Boolean statusChanged = false;
+
         try (DatagramSocket socket = new DatagramSocket(PORT)) {
             byte[] buffer = new byte[BUFFER_SIZE];
-            Scanner scanner = new Scanner(System.in);
 
             System.out.println("Server is listening on port " + PORT);
 
-            // Process real and mock inputs
             while (true) {
                 DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
                 socket.receive(packet);
@@ -57,14 +54,17 @@ public class CCPCombined {
                 String received = new String(packet.getData(), 0, packet.getLength());
                 System.out.println("Received from BR: " + received);
 
+                InetAddress address = packet.getAddress();
+                int clientPort = packet.getPort();
+
+                JSONObject toSend = new JSONObject();
+
                 // Check if the message is "I am alive"
                 if (received.trim().equals("I am alive")) {
                     System.out.println("Received 'I am alive' message from BR.");
 
                     // Send acknowledgment back to the client
                     String ackMessage = "ACK";
-                    InetAddress address = packet.getAddress();
-                    int clientPort = packet.getPort();
                     DatagramPacket ackPacket = new DatagramPacket(ackMessage.getBytes(), ackMessage.length(), address, clientPort);
                     socket.send(ackPacket);
                     System.out.println("Sent to BR: " + ackMessage);
@@ -85,11 +85,30 @@ public class CCPCombined {
                     String clientId = json.getString("client_id");
                     String sequenceNumber = json.getString("sequence_number");
 
-                    InetAddress address = packet.getAddress();
-                    int clientPort = packet.getPort();
+                    // Send initialisation message if not sent or not acknowledged
+                    if (!checkedIn) {
+                        System.out.println("Sending initialization message");
+                        String initiationMessage = jsonWrite(toSend, "CCIN", "BRXX", "s_ccp");
+                        packet = new DatagramPacket(initiationMessage.getBytes(), initiationMessage.length(), address, clientPort);
+                        socket.send(packet);
+                    }
 
+                    // Check if initialisation was acknowledged
+                    if (messageType.equals("AKIN")) {
+                        checkedIn = true;
+                    } else {
+                        continue;
+                    }
+
+                    // Acknowledge received message
+                    if (messageType.equals("EXEC")) {
+                        String acknowledge = jsonWrite(toSend, "AKEX", "BRXX", "s_ccp");
+                        packet = new DatagramPacket(acknowledge.getBytes(), acknowledge.length(), address, clientPort);
+                        socket.send(packet);
+                    }
+
+                    // Handle MCP Status Request Message
                     if (messageType.equals("STRQ")) {
-                        // Handle MCP Status Request Message
                         String status = "STOPC"; // Example status, replace with actual status
                         JSONObject responseJson = new JSONObject();
                         responseJson.put("client_type", "CCP");
@@ -102,21 +121,16 @@ public class CCPCombined {
                         DatagramPacket responsePacket = new DatagramPacket(responseMessage.getBytes(), responseMessage.length(), address, clientPort);
                         socket.send(responsePacket);
                         System.out.println("Sent to client: " + responseMessage);
-                    } else if (messageType.equals("EXEC")) {
-                        // Handle MCP Command Message
-                        String action = json.getString("action");
-                        // Perform the action (not implemented in this example)
+                    }
 
-                        JSONObject responseJson = new JSONObject();
-                        responseJson.put("client_type", "CCP");
-                        responseJson.put("message", "AKEX");
-                        responseJson.put("client_id", clientId);
-                        responseJson.put("sequence_number", sequenceNumber);
+                    // CCP status message
+                    // TODO send upon completing an action + actual status
+                    if (statusChanged) {
+                        String statusMsg = jsonWrite(toSend, "STAT", "BRXX", "s_ccp", "ERR");
+                        packet = new DatagramPacket(statusMsg.getBytes(), statusMsg.length(), address, clientPort);
+                        socket.send(packet);
 
-                        String responseMessage = responseJson.toString();
-                        DatagramPacket responsePacket = new DatagramPacket(responseMessage.getBytes(), responseMessage.length(), address, clientPort);
-                        socket.send(responsePacket);
-                        System.out.println("Sent to client: " + responseMessage);
+                        statusChanged = false;
                     }
 
                     // Print the most recent packet
@@ -142,7 +156,6 @@ public class CCPCombined {
         return jobj.toString();
     }
 
-    @SuppressWarnings("unchecked")
     static String jsonWrite(JSONObject jobj, String message, String clientID, String sequence_number, String status) {
         jobj.put("client_type", client);
         jobj.put("message", message);
@@ -151,25 +164,5 @@ public class CCPCombined {
         jobj.put("status", status);
 
         return jobj.toString();
-    }
-
-    static void jsonRead() {
-        try {
-            JSONObject obj = (JSONObject) parser.parse(new FileReader("C:\\ENGG3000_BR_2\\New folder\\ENGG2K-3K-BladeRunner\\test.json")); // Get JSONObject
-            // fetching values from JSON Object
-            client_type = (String) obj.get("client_type");
-            message = (String) obj.get("message");
-            client_id = (String) obj.get("client_id");
-            sequence_number = (String) obj.get("sequence number");
-            action = (String) obj.get("action");
-            status = (String) obj.get("status");
-            br_id = (String) obj.get("br_id");
-        } catch (FileNotFoundException e) {
-            e.printStackTrace();
-        } catch (IOException e) {
-            e.printStackTrace();
-        } catch (ParseException e) {
-            e.printStackTrace();
-        }
     }
 }
