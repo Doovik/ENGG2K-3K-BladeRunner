@@ -112,8 +112,31 @@ void setup()
     delay(1000);
   }
 
-  udp.beginPacket(server_ip, server_port);
-  udp.endPacket();
+  // Send "I am alive" message until confirmation is received
+  while (true) {
+    // Send "I am alive" message
+    udp.beginPacket(server_ip, server_port);
+    udp.println("I am alive");
+    udp.endPacket();
+    // Wait for a short period before checking for a response
+    delay(1000);
+    // Check for incoming UDP packets
+    int packetSize = udp.parsePacket();
+    if (packetSize) {
+      char incomingPacket[255];
+      int len = udp.read(incomingPacket, 255);
+      if (len > 0) {
+        incomingPacket[len] = 0;
+      }
+      // Store the most recent packet
+      mostRecentPacket = String(incomingPacket);
+      // Check if the message is "ACK"
+      if (mostRecentPacket.equals("ACK")) {
+        lastPacketTime = millis(); // Update the last packet time
+        break; // Exit the loop if confirmation is received
+      }
+    }
+  }
 }
 
 void disconnectFun() {
