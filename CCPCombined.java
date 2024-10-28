@@ -69,20 +69,6 @@ public class CCPCombined {
                     socket.send(ackPacket);
                     System.out.println("Sent to BR: " + ackMessage);
 
-                    // Prompt user for EXEC mock message
-                    System.out.println("Enter EXEC mock message JSON:");
-                    String execMockMessage = scanner.nextLine();
-                    DatagramPacket execPacket = new DatagramPacket(execMockMessage.getBytes(), execMockMessage.length(), address, clientPort);
-                    socket.send(execPacket);
-                    System.out.println("Sent to BR: " + execMockMessage);
-
-                    // Prompt user for STRQ mock message
-                    System.out.println("Enter STRQ mock message JSON:");
-                    String strqMockMessage = scanner.nextLine();
-                    DatagramPacket strqPacket = new DatagramPacket(strqMockMessage.getBytes(), strqMockMessage.length(), address, clientPort);
-                    socket.send(strqPacket);
-                    System.out.println("Sent to BR: " + strqMockMessage);
-
                     continue;
                 }
 
