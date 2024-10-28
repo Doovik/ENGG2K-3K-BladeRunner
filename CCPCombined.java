@@ -123,6 +123,11 @@ public class CCPCombined {
                         System.out.println("Sent to client: " + responseMessage);
                     }
 
+                    // Forward the received JSON message to the ESP
+                    DatagramPacket espPacket = new DatagramPacket(received.getBytes(), received.length(), address, clientPort);
+                    socket.send(espPacket);
+                    System.out.println("Forwarded to ESP: " + received);
+
                     // CCP status message
                     // TODO send upon completing an action + actual status
                     if (statusChanged) {
