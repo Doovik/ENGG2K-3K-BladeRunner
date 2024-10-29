@@ -1,6 +1,13 @@
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
+import java.net.SocketException;
+import java.nio.charset.StandardCharsets;
+import java.util.Random;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
+
 import org.json.JSONObject;
 import org.json.simple.parser.JSONParser;
 import org.json.simple.parser.ParseException;
@@ -9,8 +16,11 @@ import java.io.FileReader;
 import java.io.IOException;
 
 public class CCPCombined {
-    private static final int PORT = 3014;
+    private static final int CCP_PORT = 3014;
     private static final int BUFFER_SIZE = 256;
+    private static final String mcpAddress = "10.20.30.1";
+    private String currentBRStatus = "STOPC";
+    private boolean ackRecieved = false;
 
     // Enum for current carriage status
     enum Status {
@@ -26,10 +36,12 @@ public class CCPCombined {
     static String client_type;
     static String message;
     static String client_id;
-    static String sequence_number;
+    static int s_ccp;
     static String action;
     static String status;
     static String br_id;
+    private static final Random RANDOM = new Random();
+    private DatagramSocket udpSocket;
 
     // Initialize JSONParser
     static JSONParser parser = new JSONParser();
@@ -38,14 +50,20 @@ public class CCPCombined {
     final static String client = "ccp";
     private static String mostRecentPacket = "";
 
+    public CCPCombined() {
+        this.s_ccp = RANDOM.nextInt(29001) + 1000;
+    }
+
     public static void main(String[] args) {
+        CCPCombined ccp = new CCPCombined();
+        ccp.run();
         Boolean checkedIn = false;
         Boolean statusChanged = false;
 
-        try (DatagramSocket socket = new DatagramSocket(PORT)) {
+        try (DatagramSocket socket = new DatagramSocket(CCP_PORT)) {
             byte[] buffer = new byte[BUFFER_SIZE];
 
-            System.out.println("Server is listening on port " + PORT);
+            System.out.println("Server is listening on port " + CCP_PORT);
 
             while (true) {
                 DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
@@ -169,5 +187,67 @@ public class CCPCombined {
         jobj.put("status", status);
 
         return jobj.toString();
+    }
+
+    public void run() {
+        try {
+            udpSocket = new DatagramSocket(); 
+            new Thread(this::sendStartupStatusToMCP).start();
+
+            new Thread(this::listenForMCPCommands).start();
+
+            new Thread(this::listenForBRUpdates).start();
+        } catch (SocketException e) {
+            System.err.println("Failed to create UDP socket: " + e.getMessage());
+        }
+    }
+
+    private void sendStartupStatusToMCP() {
+        ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
+        scheduler.scheduleAtFixedRate(() -> {
+            if (!ackRecieved) {
+                JSONObject startupStatus = new JSONObject();
+                startupStatus.put("client_type", "CCP");
+                startupStatus.put("message", "CCIN");
+                startupStatus.put("client_id", "BR14");
+                startupStatus.put("sequence_number", s_ccp);
+                startupStatus.put("status", currentBRStatus);
+
+                forwardToMCP(startupStatus);
+            } else {
+                scheduler.shutdown(); // Stop scheduling once AKIN is received
+            }
+        }, 0, 2, TimeUnit.SECONDS);
+    }
+
+    private void listenForMCPCommands() {
+        try (DatagramSocket serverSocket = new DatagramSocket(CCP_PORT)) {
+            byte[] buffer = new byte[1024];
+
+            while (true) {
+                DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
+                serverSocket.receive(packet);
+
+                // Parse the MCP command
+                String request = new String(packet.getData(), 0, packet.getLength(), StandardCharsets.UTF_8);
+                JSONObject mcpCommand = new JSONObject(request);
+
+                switch (mcpCommand.getString("message")) {
+                    case "AKIN":
+                        ackRecieved = true;
+                        break;
+                    case "STRQ":
+                        sendCurrentStatusToMCP(mcpCommand.getString("client_id"));
+                        break;
+                    case "EXEC":
+                        forwardToBR(mcpCommand);
+                        break;
+                    default:
+                        break;
+                }
+            }
+        } catch (IOException e) {
+            System.err.println("Could not listen on MCP port: " + e.getMessage());
+        }
     }
 }

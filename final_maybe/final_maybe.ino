@@ -311,7 +311,7 @@ void sendStopcStatus() {
   StaticJsonDocument<256> responseDoc;
   responseDoc["client_type"] = "CCP";
   responseDoc["message"] = "STAT";
-  responseDoc["client_id"] = "BR14"; // Replace with actual client ID if available
+  responseDoc["client_id"] = "BR14"; 
   responseDoc["sequence_number"] = String(strqSequenceNumber).c_str();
   responseDoc["status"] = "STOPC";
 
