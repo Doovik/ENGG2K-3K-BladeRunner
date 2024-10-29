@@ -12,17 +12,15 @@ public class CCPCombined {
     private static final int PORT = 3014;
     private static final int BUFFER_SIZE = 256;
 
-    // Enum for current carriage status
     enum Status {
-        STOPC, // stopped + door closed
-        STOPO, // stopped + door opened
-        FSLOWC, // forward, slow, door closed
-        FFASTC, // forward, fast, door closed
-        RSLOWC, // backwards, slow, door closed
-        ERR, // CPP <-> BRC contact lost
+        STOPC,
+        STOPO,
+        FSLOWC,
+        FFASTC,
+        RSLOWC,
+        ERR,
     }
 
-    // Initialize empty values for jsonRead
     static String client_type;
     static String message;
     static String client_id;
@@ -31,7 +29,6 @@ public class CCPCombined {
     static String status;
     static String br_id;
 
-    // Initialize JSONParser
     static JSONParser parser = new JSONParser();
     static JSONObject jsonWrite = new JSONObject();
 
@@ -59,11 +56,9 @@ public class CCPCombined {
 
                 JSONObject toSend = new JSONObject();
 
-                // Check if the message is "I am alive"
                 if (received.trim().equals("I am alive")) {
                     System.out.println("Received 'I am alive' message from BR.");
 
-                    // Send acknowledgment back to the client
                     String ackMessage = "ACK";
                     DatagramPacket ackPacket = new DatagramPacket(ackMessage.getBytes(), ackMessage.length(), address, clientPort);
                     socket.send(ackPacket);
@@ -72,12 +67,10 @@ public class CCPCombined {
                     continue;
                 }
 
-                // Parse the received message
                 try {
                     JSONObject json = new JSONObject(received);
                     String messageType = json.getString("message");
 
-                    // Store the most recent packet if it's not an AKEX message
                     if (!messageType.equals("AKEX")) {
                         mostRecentPacket = received;
                     }
@@ -85,7 +78,6 @@ public class CCPCombined {
                     String clientId = json.getString("client_id");
                     String sequenceNumber = json.getString("sequence_number");
 
-                    // Send initialisation message if not sent or not acknowledged
                     if (!checkedIn) {
                         System.out.println("Sending initialization message");
                         String initiationMessage = jsonWrite(toSend, "CCIN", "BRXX", "s_ccp");
@@ -93,23 +85,20 @@ public class CCPCombined {
                         socket.send(packet);
                     }
 
-                    // Check if initialisation was acknowledged
                     if (messageType.equals("AKIN")) {
                         checkedIn = true;
                     } else {
                         continue;
                     }
 
-                    // Acknowledge received message
                     if (messageType.equals("EXEC")) {
                         String acknowledge = jsonWrite(toSend, "AKEX", "BRXX", "s_ccp");
                         packet = new DatagramPacket(acknowledge.getBytes(), acknowledge.length(), address, clientPort);
                         socket.send(packet);
                     }
 
-                    // Handle MCP Status Request Message
                     if (messageType.equals("STRQ")) {
-                        String status = "STOPC"; // Example status, replace with actual status
+                        String status = "STOPC";
                         JSONObject responseJson = new JSONObject();
                         responseJson.put("client_type", "CCP");
                         responseJson.put("message", "STAT");
@@ -123,13 +112,16 @@ public class CCPCombined {
                         System.out.println("Sent to client: " + responseMessage);
                     }
 
-                    // Forward the received JSON message to the ESP
                     DatagramPacket espPacket = new DatagramPacket(received.getBytes(), received.length(), address, clientPort);
                     socket.send(espPacket);
                     System.out.println("Forwarded to ESP: " + received);
 
-                    // CCP status message
-                    // TODO send upon completing an action + actual status
+                    if (messageType.equals("STAT")) {
+                        DatagramPacket mcpPacket = new DatagramPacket(received.getBytes(), received.length(), address, clientPort);
+                        socket.send(mcpPacket);
+                        System.out.println("Forwarded STAT to MCP: " + received);
+                    }
+
                     if (statusChanged) {
                         String statusMsg = jsonWrite(toSend, "STAT", "BRXX", "s_ccp", "ERR");
                         packet = new DatagramPacket(statusMsg.getBytes(), statusMsg.length(), address, clientPort);
@@ -138,7 +130,6 @@ public class CCPCombined {
                         statusChanged = false;
                     }
 
-                    // Print the most recent packet
                     System.out.println("Most recent packet: " + mostRecentPacket);
                 } catch (Exception ex) {
                     System.out.println("Failed to parse JSON message: " + ex.getMessage());
